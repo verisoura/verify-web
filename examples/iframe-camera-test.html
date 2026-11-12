@@ -49,16 +49,15 @@
   <section>
     <h2>C. A cross-origin page framed with allow="camera"</h2>
     <p class="note">
-      Loads any URL in a cross-origin iframe that delegates the camera. This
-      page cannot see inside a cross-origin frame: the readout below only
-      confirms the frame loaded (or that bridge-style messages arrived).
-      Whether capture works must be read from what the framed page itself
-      shows. If the target forbids framing (CSP <code>frame-ancestors</code> /
-      <code>X-Frame-Options</code>), the frame stays blank - that is a result
-      too: note it.
+      This is how a customer's website will show the verification page.
+      Tap the button below, then tap <strong>Start camera in this frame</strong>
+      inside the frame that appears: the result shows here and inside the
+      frame. The default page is served from a different site
+      (raw.githack.com) on purpose. Any other URL can be framed too; if it
+      forbids framing, the frame stays blank, and that is a result as well.
     </p>
     <label for="urlC">URL to frame</label>
-    <input id="urlC" value="https://app.verisoura.com">
+    <input id="urlC" value="https://raw.githack.com/verisoura/verify-web/main/examples/camera-check.html">
     <button id="btnC" type="button">Load in cross-origin iframe</button>
     <span class="status" id="statusC">Not run yet.</span>
     <span class="status" id="messagesC" hidden></span>
@@ -129,6 +128,10 @@
     window.addEventListener("message", function (e) {
       // Display (as text only) anything the framed page posts, so a page
       // that speaks the verisoura bridge shows its signals here too.
+      if (frameCOrigin && e.origin === frameCOrigin && e.data && e.data.camSpike === "cross-origin") {
+        setStatus("statusC", !!e.data.ok, String(e.data.text));
+        return;
+      }
       if (frameCOrigin && e.origin === frameCOrigin && e.data) {
         var box = document.getElementById("messagesC");
         box.hidden = false;
@@ -157,8 +160,8 @@
       var loaded = false;
       f.addEventListener("load", function () {
         loaded = true;
-        setStatus("statusC", true,
-          "The frame fired its load event. Now use the framed page itself: if its camera starts, cross-origin framed capture WORKS on this browser; if it shows a camera error or stays blank, it does NOT. Record the device, OS and browser.");
+        setStatus("statusC", null,
+          "The frame loaded. Now tap the button inside the frame; its result appears here.");
       });
       setTimeout(function () {
         if (!loaded) setStatus("statusC", false, "No load event after 15s - the page may be unreachable or framing may be blocked.");

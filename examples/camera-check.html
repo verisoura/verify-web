@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Camera check</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 15px/1.4 system-ui, sans-serif; margin: 10px; }
+    button { padding: 12px 16px; font: inherit; border-radius: 8px; cursor: pointer; }
+    #s { margin-top: 8px; padding: 8px 10px; border-radius: 8px; font-weight: 600; background: rgba(127,127,127,.15); }
+    .pass { background: #1b7f3b !important; color: #fff; }
+    .fail { background: #b3261e !important; color: #fff; }
+    video { width: 140px; border-radius: 8px; background: #000; display: block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <!-- Served from a different origin than the test page, so the test page frames it
+       cross-origin, as a customer's site frames the hosted verification page. -->
+  <div>Framed page on <strong id="o"></strong></div>
+  <button id="b" type="button">Start camera in this frame</button>
+  <div id="s">Not run yet.</div>
+  <video id="v" autoplay playsinline muted></video>
+  <script>
+    document.getElementById("o").textContent = location.host;
+    function report(ok, text) {
+      var s = document.getElementById("s");
+      s.textContent = (ok ? "PASS - " : "FAIL - ") + text;
+      s.className = ok ? "pass" : "fail";
+      // Nothing secret: the parent may be any test page.
+      if (window.parent !== window) parent.postMessage({ camSpike: "cross-origin", ok: ok, text: text }, "*");
+    }
+    document.getElementById("b").addEventListener("click", function () {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        report(false, "getUserMedia is not available in this cross-origin frame");
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } }).then(function (stream) {
+        document.getElementById("v").srcObject = stream;
+        var track = stream.getVideoTracks()[0];
+        report(true, "camera running in a cross-origin frame (" + (track ? track.label || "camera" : "camera") + ")");
+      }).catch(function (err) {
+        report(false, (err && err.name ? err.name : "Error") + ": " + (err && err.message ? err.message : String(err)));
+      });
+    });
+  </script>
+</body>
+</html>
