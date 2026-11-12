@@ -93,14 +93,16 @@
       });
     });
 
-    // --- B: same-origin iframe (srcdoc inherits this page's origin) ---
+    // --- B: same-origin iframe (srcdoc inherits this page's origin). The child posts with
+    // targetOrigin "/" (its own origin): its location.origin reads "null" (about:srcdoc), which
+    // postMessage rejects. ---
     var childSource = [
       "<!doctype html><meta charset=utf-8>",
       "<body style=\"font:14px system-ui;margin:8px\">",
       "<div id=s>iframe loaded; requesting camera...</div>",
       "<video id=v autoplay playsinline muted style=\"width:120px;background:#000;border-radius:6px\"></video>",
       "<script>",
-      "function send(ok, text){ parent.postMessage({ camSpike: 'same-origin', ok: ok, text: text }, location.origin); document.getElementById('s').textContent = (ok?'PASS: ':'FAIL: ')+text; }",
+      "function send(ok, text){ document.getElementById('s').textContent = (ok?'PASS: ':'FAIL: ')+text; parent.postMessage({ camSpike: 'same-origin', ok: ok, text: text }, '/'); }",
       "if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { send(false, 'getUserMedia not available inside the iframe'); }",
       "else { navigator.mediaDevices.getUserMedia({ video: true }).then(function(st){ document.getElementById('v').srcObject = st; var t = st.getVideoTracks()[0]; send(true, 'camera stream running inside the same-origin iframe ('+(t?t.label:'camera')+')'); }).catch(function(e){ send(false, (e.name||'Error')+': '+(e.message||e)); }); }",
       "<\/script>"
