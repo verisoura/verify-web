@@ -1,0 +1,47 @@
+{
+  "name": "@verisoura/verify",
+  "version": "0.1.0-dev",
+  "description": "Web plugin for VeriSoura Verify: opens the hosted verification page in a modal, inline frame, or popup and returns exactly one of three outcomes.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://docs.verisoura.com",
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "./dist/index.js"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/build-iife.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test test/core.test.js test/build.test.js test/element.test.js"
+  },
+  "keywords": [
+    "verisoura",
+    "ekyc",
+    "identity-verification",
+    "liveness"
+  ],
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "happy-dom": "^21.0.4",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

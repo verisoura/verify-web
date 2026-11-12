@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ["18.x", "20.x", "22.x"]
+    steps:
+      - uses: actions/checkout@v4 # TODO pin to a commit SHA before first release
+      - uses: actions/setup-node@v4 # TODO pin to a commit SHA before first release
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # npm test builds dist/ (ESM + d.ts + IIFE with SRI) and runs node --test
+      - run: npm test

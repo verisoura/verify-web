@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>M0 camera-in-iframe spike</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 720px; margin: 1rem auto; padding: 0 16px; }
+    h1 { font-size: 1.3rem; }
+    h2 { font-size: 1.05rem; margin-top: 2rem; }
+    section { border: 1px solid rgba(127,127,127,.4); border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
+    button { padding: 12px 18px; font: inherit; cursor: pointer; border-radius: 8px; }
+    input { width: 100%; padding: 10px; font: inherit; box-sizing: border-box; margin: 8px 0; }
+    .status { display: block; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-weight: 600;
+              background: rgba(127,127,127,.15); white-space: pre-wrap; word-break: break-word; }
+    .pass { background: #1b7f3b; color: #fff; }
+    .fail { background: #b3261e; color: #fff; }
+    video { width: 160px; border-radius: 8px; display: block; margin-top: 10px; background: #000; }
+    iframe { width: 100%; border: 1px solid rgba(127,127,127,.4); border-radius: 8px; margin-top: 10px; }
+    #frameB { height: 240px; }
+    #frameC { height: 480px; }
+    .note { font-size: 14px; opacity: .8; }
+  </style>
+</head>
+<body>
+  <h1>M0 spike: does the camera work when framed?</h1>
+  <p class="note">
+    Serve this file over <strong>https</strong> or <strong>localhost</strong>
+    (for example <code>npx serve examples</code>); getUserMedia needs a secure
+    context. All results appear on screen - no console needed. Run it on the
+    phones and browsers you care about and write the results down.
+  </p>
+
+  <section>
+    <h2>A. getUserMedia in the top page</h2>
+    <button id="btnA" type="button">Test camera here</button>
+    <span class="status" id="statusA">Not run yet.</span>
+    <video id="videoA" autoplay playsinline muted></video>
+  </section>
+
+  <section>
+    <h2>B. getUserMedia inside a same-origin iframe with allow="camera"</h2>
+    <button id="btnB" type="button">Test camera in same-origin iframe</button>
+    <span class="status" id="statusB">Not run yet.</span>
+    <div id="frameBHolder"></div>
+  </section>
+
+  <section>
+    <h2>C. A cross-origin page framed with allow="camera"</h2>
+    <p class="note">
+      Loads any URL in a cross-origin iframe that delegates the camera. This
+      page cannot see inside a cross-origin frame: the readout below only
+      confirms the frame loaded (or that bridge-style messages arrived).
+      Whether capture works must be read from what the framed page itself
+      shows. If the target forbids framing (CSP <code>frame-ancestors</code> /
+      <code>X-Frame-Options</code>), the frame stays blank - that is a result
+      too: note it.
+    </p>
+    <label for="urlC">URL to frame</label>
+    <input id="urlC" value="https://app.verisoura.com">
+    <button id="btnC" type="button">Load in cross-origin iframe</button>
+    <span class="status" id="statusC">Not run yet.</span>
+    <span class="status" id="messagesC" hidden></span>
+    <div id="frameCHolder"></div>
+  </section>
+
+  <script>
+    function setStatus(id, ok, text) {
+      var el = document.getElementById(id);
+      el.textContent = (ok === null ? "" : ok ? "PASS - " : "FAIL - ") + text;
+      el.className = "status" + (ok === null ? "" : ok ? " pass" : " fail");
+    }
+    function describeError(err) {
+      return (err && err.name ? err.name : "Error") + ": " + (err && err.message ? err.message : String(err));
+    }
+
+    // --- A: top page ---
+    document.getElementById("btnA").addEventListener("click", function () {
+      setStatus("statusA", null, "Requesting camera...");
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus("statusA", false, "navigator.mediaDevices.getUserMedia is not available (insecure context or unsupported browser).");
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } }).then(function (stream) {
+        var track = stream.getVideoTracks()[0];
+        var s = track && track.getSettings ? track.getSettings() : {};
+        document.getElementById("videoA").srcObject = stream;
+        setStatus("statusA", true, "Camera stream running in the top page (" +
+          (s.width || "?") + "x" + (s.height || "?") + ", " + (track ? track.label : "camera") + "). Stop it by reloading.");
+      }).catch(function (err) {
+        setStatus("statusA", false, describeError(err));
+      });
+    });
+
+    // --- B: same-origin iframe (srcdoc inherits this page's origin) ---
+    var childSource = [
+      "<!doctype html><meta charset=utf-8>",
+      "<body style=\"font:14px system-ui;margin:8px\">",
+      "<div id=s>iframe loaded; requesting camera...</div>",
+      "<video id=v autoplay playsinline muted style=\"width:120px;background:#000;border-radius:6px\"></video>",
+      "<script>",
+      "function send(ok, text){ parent.postMessage({ camSpike: 'same-origin', ok: ok, text: text }, location.origin); document.getElementById('s').textContent = (ok?'PASS: ':'FAIL: ')+text; }",
+      "if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { send(false, 'getUserMedia not available inside the iframe'); }",
+      "else { navigator.mediaDevices.getUserMedia({ video: true }).then(function(st){ document.getElementById('v').srcObject = st; var t = st.getVideoTracks()[0]; send(true, 'camera stream running inside the same-origin iframe ('+(t?t.label:'camera')+')'); }).catch(function(e){ send(false, (e.name||'Error')+': '+(e.message||e)); }); }",
+      "<\/script>"
+    ].join("");
+
+    window.addEventListener("message", function (e) {
+      // Same-origin child reports its result here.
+      if (e.origin === location.origin && e.data && e.data.camSpike === "same-origin") {
+        setStatus("statusB", !!e.data.ok, String(e.data.text));
+      }
+    });
+
+    document.getElementById("btnB").addEventListener("click", function () {
+      setStatus("statusB", null, "Loading iframe...");
+      var holder = document.getElementById("frameBHolder");
+      holder.innerHTML = "";
+      var f = document.createElement("iframe");
+      f.id = "frameB";
+      f.setAttribute("allow", "camera");
+      f.srcdoc = childSource;
+      holder.appendChild(f);
+    });
+
+    // --- C: cross-origin iframe ---
+    var frameCOrigin = null;
+    window.addEventListener("message", function (e) {
+      // Display (as text only) anything the framed page posts, so a page
+      // that speaks the verisoura bridge shows its signals here too.
+      if (frameCOrigin && e.origin === frameCOrigin && e.data) {
+        var box = document.getElementById("messagesC");
+        box.hidden = false;
+        var line;
+        try { line = JSON.stringify(e.data); } catch (err) { line = String(e.data); }
+        box.textContent = "message from frame: " + line.slice(0, 500);
+      }
+    });
+
+    document.getElementById("btnC").addEventListener("click", function () {
+      var url;
+      try {
+        url = new URL(document.getElementById("urlC").value.trim());
+      } catch (err) {
+        setStatus("statusC", false, "That is not a valid URL.");
+        return;
+      }
+      frameCOrigin = url.origin;
+      setStatus("statusC", null, "Loading " + url.href + " ...");
+      var holder = document.getElementById("frameCHolder");
+      holder.innerHTML = "";
+      var f = document.createElement("iframe");
+      f.id = "frameC";
+      f.setAttribute("allow", "camera");
+      f.src = url.href;
+      var loaded = false;
+      f.addEventListener("load", function () {
+        loaded = true;
+        setStatus("statusC", true,
+          "The frame fired its load event. Now use the framed page itself: if its camera starts, cross-origin framed capture WORKS on this browser; if it shows a camera error or stays blank, it does NOT. Record the device, OS and browser.");
+      });
+      setTimeout(function () {
+        if (!loaded) setStatus("statusC", false, "No load event after 15s - the page may be unreachable or framing may be blocked.");
+      }, 15000);
+      holder.appendChild(f);
+    });
+  </script>
+</body>
+</html>

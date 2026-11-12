@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VeriSoura Verify - vanilla example</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 16px; }
+    label { display: block; margin: 12px 0 4px; }
+    input { width: 100%; padding: 8px; font: inherit; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 10px 18px; font: inherit; cursor: pointer; }
+    pre { background: rgba(127,127,127,.12); padding: 12px; overflow: auto; white-space: pre-wrap; }
+    .warn { font-size: 14px; opacity: .8; }
+  </style>
+  <!-- Local build: run `npm run build` first. In production, load the CDN
+       artifact with the SRI hash the build prints:
+       <script src="https://sdk.verisoura.com/web/<version>/verify.js"
+               integrity="sha384-..." crossorigin="anonymous"></script> -->
+  <script src="../dist/verify.iife.js"></script>
+</head>
+<body>
+  <h1>VeriSoura Verify - vanilla JS</h1>
+  <p class="warn">
+    The outcome shown below is for display only. Your backend must act only on
+    its own webhook or <code>GET /v1/verifications/{id}</code>, looked up by the
+    id it stored when it created the verification - never on an id reported by
+    this page.
+  </p>
+
+  <label for="token">Client token (from your backend's create call)</label>
+  <input id="token" placeholder="vct_...">
+
+  <label for="url">Page URL (optional; the <code>url</code> from the create response, or a test deployment)</label>
+  <input id="url" placeholder="https://verify.verisoura.com/v/ver_...">
+
+  <button id="start" type="button">Start verification</button>
+
+  <h2>Log</h2>
+  <pre id="out"></pre>
+
+  <script>
+    var out = document.getElementById("out");
+    function log(line) { out.textContent += line + "\n"; }
+
+    document.getElementById("start").addEventListener("click", function () {
+      var clientToken = document.getElementById("token").value.trim();
+      var url = document.getElementById("url").value.trim() || undefined;
+      if (!clientToken) { log("Enter a client token first."); return; }
+
+      var flow = VerisouraVerify.open({
+        clientToken: clientToken,
+        url: url,
+        locale: "en",
+        appearance: { colorScheme: "auto" },
+        onEvent: function (e) { log("event: " + e.name + (e.step != null ? " step " + e.step : "")); }
+      });
+
+      flow.result.then(function (outcome) {
+        log("outcome: " + JSON.stringify(outcome, null, 2));
+        log("(display only - confirm on your backend by YOUR stored id)");
+      });
+    });
+  </script>
+</body>
+</html>
